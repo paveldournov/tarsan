@@ -1,0 +1,18 @@
+name: Generate target images
+description: Generate images of bulls-eye target with random holes
+
+inputs:
+    - {name: Number of images, type: Integer, description: 'Number of images to generate'}
+
+outputs:
+    - {name: Output location, type: ImageList, description: "Path for the images location"}
+
+implementation:
+    container:
+        image: __IMAGE_NAME__
+        command: ["python","/component/entry_point.py"]
+        args: [
+            --samples, {inputValue: Number of images},
+            --path, {outputPath: Output location}
+        ]
+
