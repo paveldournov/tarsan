@@ -1,4 +1,4 @@
-SET images_tag=0.12-test24
+SET images_tag=0.12-test28
 
 pushd generate_data
 call build.cmd

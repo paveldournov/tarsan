@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: train-target-image-reco-pipeline-
+  annotations: {pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"default": "100",
+      "name": "train_count", "optional": true, "type": "Integer"}, {"default": "10",
+      "name": "test_count", "optional": true, "type": "Integer"}], "name": "Train
+      target image reco pipeline"}'}
+spec:
+  entrypoint: train-target-image-reco-pipeline
+  templates:
+  - name: generate-target-images
+    container:
+      args: [--train_samples, '{{inputs.parameters.train_count}}', --test_samples,
+        '{{inputs.parameters.test_count}}', --train_path, /tmp/outputs/TrainingDataLocation/data,
+        --test_path, /tmp/outputs/TestDataLocation/data]
+      command: [python, /component/entry_point.py]
+      image: gcr.io/test-vms/tarsan/genimages:0.12-test28
+    inputs:
+      parameters:
+      - {name: test_count}
+      - {name: train_count}
+    outputs:
+      artifacts:
+      - {name: generate-target-images-testdatalocation, path: /tmp/outputs/TestDataLocation/data}
+      - {name: generate-target-images-trainingdatalocation, path: /tmp/outputs/TrainingDataLocation/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
+          images of bulls-eye target with random holes", "inputs": [{"description":
+          "Number of images to generate for training", "name": "TrainingImageCount",
+          "type": "Integer"}, {"description": "Number of images to generate for testing",
+          "name": "TestImageCount", "type": "Integer"}], "name": "Generate target
+          images", "outputs": [{"description": "Path for the training images location",
+          "name": "TrainingDataLocation", "type": "ImageList"}, {"description": "Path
+          for the testing images location", "name": "TestDataLocation", "type": "ImageList"}]}'}
+  - name: generate-target-images-2
+    container:
+      args: [--imagesPath, /tmp/inputs/Input_images/data, --modelPath, /tmp/outputs/Model/data]
+      command: [python, /component/entry_point.py]
+      image: gcr.io/test-vms/tarsan/trainmodel:0.12-test28
+    inputs:
+      artifacts:
+      - {name: generate-target-images-trainingdatalocation, path: /tmp/inputs/Input_images/data}
+    outputs:
+      artifacts:
+      - {name: generate-target-images-2-model, path: /tmp/outputs/Model/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
+          images of bulls-eye target with random holes", "inputs": [{"description":
+          "Images to train the model", "name": "Input images", "type": "ImageList"}],
+          "name": "Generate target images", "outputs": [{"description": "Trained model",
+          "name": "Model", "type": "KerasModel"}]}'}
+  - name: train-target-image-reco-pipeline
+    inputs:
+      parameters:
+      - {name: test_count}
+      - {name: train_count}
+    dag:
+      tasks:
+      - name: generate-target-images
+        template: generate-target-images
+        arguments:
+          parameters:
+          - {name: test_count, value: '{{inputs.parameters.test_count}}'}
+          - {name: train_count, value: '{{inputs.parameters.train_count}}'}
+      - name: generate-target-images-2
+        template: generate-target-images-2
+        dependencies: [generate-target-images]
+        arguments:
+          artifacts:
+          - {name: generate-target-images-trainingdatalocation, from: '{{tasks.generate-target-images.outputs.artifacts.generate-target-images-trainingdatalocation}}'}
+  arguments:
+    parameters:
+    - {name: train_count, value: '100'}
+    - {name: test_count, value: '10'}
+  serviceAccountName: pipeline-runner

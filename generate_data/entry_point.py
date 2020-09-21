@@ -1,38 +1,44 @@
 import argparse
 import os
 from os import path
+import json
 #import kfp
 #import kfp.components as comp
 #from kfp.components._components import _resolve_command_line_and_paths
 
-def gen_target_images_entry_point(samples_count, samples_path):
+def gen_target_images_entry_point(samples_count, samples_path, test_count, test_path):
     from gen_targets import generate_dataset
     generate_dataset(samples_count, samples_path)
+    generate_dataset(test_count, test_path)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--samples', metavar='num_samples', type=int, help='number of samples')
-parser.add_argument('--path', metavar="samples_path", type=str, help='output path')
+parser.add_argument('--train_samples', type=int, help='number of samples for training')
+parser.add_argument('--test_samples',  type=int, help='number of samples for testing')
+parser.add_argument('--train_path', type=str, help='output path for training samples')
+parser.add_argument('--test_path', type=str, help='output path for testing samples')
 
 args = parser.parse_args()
 
-print("Samples={}".format(args.samples))
-print("Path={}".format(args.path))
+print(args)
 
-print("Creating output dir")
-#output_dir_path = os.path.dirname(args.path)
-output_dir_path = args.path
-os.makedirs(output_dir_path, exist_ok=True)
+print("Creating output dirs")
 
-#ff2 = open(args.path, "w")
-#ff2.write("gs://dpa23/imagedata")
-#ff2.close()
+os.makedirs(args.train_path, exist_ok=True)
+os.makedirs(args.test_path, exist_ok=True)
 
-#print("Output exists:{}".format(path.exists(args.path)))
-#print("Output is a file:{}".format(path.isfile(args.path)))
+gen_target_images_entry_point(args.train_samples, args.train_path, args.test_samples, args.test_path)
 
-gen_target_images_entry_point(args.samples, output_dir_path)
+viz_metadata = {
+    'outputs' : [
+    # Markdown that is hardcoded inline
+    {
+      'storage': 'inline',
+      'source': '# Inline Markdown\n[A link](https://www.kubeflow.org/)',
+      'type': 'markdown',
+    }]
+  }
 
-#process_op = comp.func_to_container_op(gen_target_images_entry_point, base_image="gcr.io/test-vms/tarsan-genimages:latest")
-#process_op.component_spec.save("tarsan_gen_images.yaml")
+with open('/mlpipeline-ui-metadata.json', 'w') as f:
+    json.dump(metadata, f)
 

@@ -2,17 +2,21 @@ name: Generate target images
 description: Generate images of bulls-eye target with random holes
 
 inputs:
-    - {name: Number of images, type: Integer, description: 'Number of images to generate'}
+    - {name: TrainingImageCount, type: Integer, description: 'Number of images to generate for training'}
+    - {name: TestImageCount, type: Integer, description: 'Number of images to generate for testing'}
 
 outputs:
-    - {name: Output location, type: ImageList, description: "Path for the images location"}
+    - {name: TrainingDataLocation, type: ImageList, description: "Path for the training images location"}
+    - {name: TestDataLocation, type: ImageList, description: "Path for the testing images location"}
 
 implementation:
     container:
         image: __IMAGE_NAME__
         command: ["python","/component/entry_point.py"]
         args: [
-            --samples, {inputValue: Number of images},
-            --path, {outputPath: Output location}
+            --train_samples, {inputValue: TrainingImageCount},
+            --test_samples, {inputValue: TestImageCount},
+            --train_path, {outputPath: TrainingDataLocation},
+            --test_path, {outputPath: TestDataLocation}
         ]
 

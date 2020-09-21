@@ -5,10 +5,11 @@ gen_images_op = load_component_from_file("generate_data\component.yaml")
 train_model_op = load_component_from_file("train_model\component.yaml")
 
 def train_target_image_reco_pipeline(
-    samples_count: int = 10
+    train_count: int = 100, 
+    test_count: int = 10
 ):
-    gen_images_task = gen_images_op(samples_count)
-    train_model_task = train_model_op(gen_images_task.output)
+    gen_images_task = gen_images_op(train_count, test_count)
+    train_model_task = train_model_op(gen_images_task.outputs["TrainingDataLocation".lower()])
 
 
 kfp.compiler.compiler.Compiler().compile(
