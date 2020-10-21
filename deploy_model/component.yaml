@@ -1,0 +1,20 @@
+name: Deploy the model 
+description: Deploy model as an endpoint
+
+inputs:
+    - {name: Model, type: KerasModel, description: "Trained model"}
+
+outputs:
+    - {name: Endpoint, type: String, description: "Model endpoint URL"}
+    - {name: MLPipeline UI metadata, type: UI metadata}
+
+implementation:
+    container:
+        image: gcr.io/test-vms/tarsan/deploymodel:0.12-test36
+        command: ["python","/component/entry_point.py"]
+        args: [
+            --modelPath, {inputPath: Model},
+            --endpointOutFile, {outputPath: Endpoint}
+        ]
+        fileOutputs:
+            MLPipeline UI metadata: /mlpipeline-ui-metadata.json

@@ -11,7 +11,7 @@ outputs:
 
 implementation:
     container:
-        image: gcr.io/test-vms/tarsan/genimages:0.12-test28
+        image: gcr.io/test-vms/tarsan/genimages:0.12-test36
         command: ["python","/component/entry_point.py"]
         args: [
             --train_samples, {inputValue: TrainingImageCount},

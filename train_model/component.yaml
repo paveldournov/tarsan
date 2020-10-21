@@ -1,18 +1,23 @@
-name: Generate target images
-description: Generate images of bulls-eye target with random holes
+name: Train scoring model
+description: Train and evaluate the scoring model
 
 inputs:
     - {name: Input images, type: ImageList, description: 'Images to train the model'}
 
 outputs:
     - {name: Model, type: KerasModel, description: "Trained model"}
+    - {name: MLPipeline UI metadata, type: UI metadata}
+    - {name: MLPipeline Metrics,     type: Metrics}
 
 implementation:
     container:
-        image: gcr.io/test-vms/tarsan/trainmodel:0.12-test24
+        image: gcr.io/test-vms/tarsan/trainmodel:0.12-test36
         command: ["python","/component/entry_point.py"]
         args: [
-            --images, {inputPath: Input images},
+            --imagesPath, {inputPath: Input images},
             --modelPath, {outputPath: Model}
         ]
+        fileOutputs:
+            MLPipeline UI metadata: /mlpipeline-ui-metadata.json
+            MLPipeline Metrics:     /mlpipeline-metrics.json
 

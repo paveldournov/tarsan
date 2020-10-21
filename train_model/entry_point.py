@@ -25,12 +25,8 @@ print("ImagesPath={}".format(args.imagesPath))
 print("modelPath={}".format(args.modelPath))
 
 print("Creating output dir")
-#output_dir_path = os.path.dirname(args.path)
 output_dir_path = args.modelPath
 os.makedirs(output_dir_path, exist_ok=True)
 
 train_model(args.imagesPath, args.modelPath)
-
-#process_op = comp.func_to_container_op(gen_target_images_entry_point, base_image="gcr.io/test-vms/tarsan-genimages:latest")
-#process_op.component_spec.save("tarsan_gen_images.yaml")
 

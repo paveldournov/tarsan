@@ -40,5 +40,5 @@ viz_metadata = {
   }
 
 with open('/mlpipeline-ui-metadata.json', 'w') as f:
-    json.dump(metadata, f)
+    json.dump(viz_metadata, f)
 

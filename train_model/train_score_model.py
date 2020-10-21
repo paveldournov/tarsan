@@ -116,4 +116,45 @@ def train_target_score_model(imagesPath, modelPath):
         np_labels.mean(),
         np_labels.std()))
 
+    metrics = {
+        'metrics': [{
+            'name': 'diff-mean', 
+            'numberValue':  mean, 
+            'format': "PERCENTAGE",  
+        }]
+    }
+    
+    with open('/mlpipeline-metrics.json', 'w') as f:
+        json.dump(metrics, f)
+
+    metadata = {
+        'outputs' : [
+            # Markdown that is hardcoded inline
+            {
+                'storage': 'inline',
+                'source': '# Inline Markdown\n[A link](https://www.kubeflow.org/)',
+                'type': 'markdown',
+            },
+            # Markdown that is read from a file
+            {
+                'storage':'inline',
+                'source': 'Markdown text',
+                'type': 'markdown',
+            }]
+        }
+    
+    with open('/mlpipeline-ui-metadata.json', 'w') as f:
+        json.dump(metadata, f)
+
+    #metadata = {
+    #    'outputs' : [{
+    #    'type': 'tensorboard',
+    #    'source': args.job_dir,
+    #    }]
+    #}
+
+    #with open('/mlpipeline-ui-metadata.json', 'w') as f:
+    #    json.dump(metadata, f)
+
+
     print("[INFO] mean: {:.2f}%, std: {:.2f}%".format(mean, std))

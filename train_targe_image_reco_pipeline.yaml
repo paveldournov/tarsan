@@ -9,13 +9,31 @@ metadata:
 spec:
   entrypoint: train-target-image-reco-pipeline
   templates:
+  - name: deploy-the-model
+    container:
+      args: [--modelPath, /tmp/inputs/Model/data, --endpointOutFile, /tmp/outputs/Endpoint/data]
+      command: [python, /component/entry_point.py]
+      image: gcr.io/test-vms/tarsan/deploymodel:0.12-test36
+    inputs:
+      artifacts:
+      - {name: train-scoring-model-model, path: /tmp/inputs/Model/data}
+    outputs:
+      artifacts:
+      - {name: mlpipeline-ui-metadata, path: /mlpipeline-ui-metadata.json}
+      - {name: deploy-the-model-endpoint, path: /tmp/outputs/Endpoint/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Deploy
+          model as an endpoint", "inputs": [{"description": "Trained model", "name":
+          "Model", "type": "KerasModel"}], "name": "Deploy the model", "outputs":
+          [{"description": "Model endpoint URL", "name": "Endpoint", "type": "String"},
+          {"name": "MLPipeline UI metadata", "type": "UI metadata"}]}'}
   - name: generate-target-images
     container:
       args: [--train_samples, '{{inputs.parameters.train_count}}', --test_samples,
         '{{inputs.parameters.test_count}}', --train_path, /tmp/outputs/TrainingDataLocation/data,
         --test_path, /tmp/outputs/TestDataLocation/data]
       command: [python, /component/entry_point.py]
-      image: gcr.io/test-vms/tarsan/genimages:0.12-test28
+      image: gcr.io/test-vms/tarsan/genimages:0.12-test36
     inputs:
       parameters:
       - {name: test_count}
@@ -33,23 +51,26 @@ spec:
           images", "outputs": [{"description": "Path for the training images location",
           "name": "TrainingDataLocation", "type": "ImageList"}, {"description": "Path
           for the testing images location", "name": "TestDataLocation", "type": "ImageList"}]}'}
-  - name: generate-target-images-2
+  - name: train-scoring-model
     container:
       args: [--imagesPath, /tmp/inputs/Input_images/data, --modelPath, /tmp/outputs/Model/data]
       command: [python, /component/entry_point.py]
-      image: gcr.io/test-vms/tarsan/trainmodel:0.12-test28
+      image: gcr.io/test-vms/tarsan/trainmodel:0.12-test36
     inputs:
       artifacts:
       - {name: generate-target-images-trainingdatalocation, path: /tmp/inputs/Input_images/data}
     outputs:
       artifacts:
-      - {name: generate-target-images-2-model, path: /tmp/outputs/Model/data}
+      - {name: mlpipeline-ui-metadata, path: /mlpipeline-ui-metadata.json}
+      - {name: mlpipeline-metrics, path: /mlpipeline-metrics.json}
+      - {name: train-scoring-model-model, path: /tmp/outputs/Model/data}
     metadata:
-      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
-          images of bulls-eye target with random holes", "inputs": [{"description":
-          "Images to train the model", "name": "Input images", "type": "ImageList"}],
-          "name": "Generate target images", "outputs": [{"description": "Trained model",
-          "name": "Model", "type": "KerasModel"}]}'}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Train
+          and evaluate the scoring model", "inputs": [{"description": "Images to train
+          the model", "name": "Input images", "type": "ImageList"}], "name": "Train
+          scoring model", "outputs": [{"description": "Trained model", "name": "Model",
+          "type": "KerasModel"}, {"name": "MLPipeline UI metadata", "type": "UI metadata"},
+          {"name": "MLPipeline Metrics", "type": "Metrics"}]}'}
   - name: train-target-image-reco-pipeline
     inputs:
       parameters:
@@ -57,14 +78,20 @@ spec:
       - {name: train_count}
     dag:
       tasks:
+      - name: deploy-the-model
+        template: deploy-the-model
+        dependencies: [train-scoring-model]
+        arguments:
+          artifacts:
+          - {name: train-scoring-model-model, from: '{{tasks.train-scoring-model.outputs.artifacts.train-scoring-model-model}}'}
       - name: generate-target-images
         template: generate-target-images
         arguments:
           parameters:
           - {name: test_count, value: '{{inputs.parameters.test_count}}'}
           - {name: train_count, value: '{{inputs.parameters.train_count}}'}
-      - name: generate-target-images-2
-        template: generate-target-images-2
+      - name: train-scoring-model
+        template: train-scoring-model
         dependencies: [generate-target-images]
         arguments:
           artifacts:
