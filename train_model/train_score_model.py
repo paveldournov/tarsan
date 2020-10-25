@@ -8,6 +8,8 @@ from time import time
 import tensorflow as tf
 import os
 import json
+import base64
+from io import BytesIO
 
 from keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
@@ -28,6 +30,7 @@ def train_target_score_model(imagesPath, modelPath):
     labels = []
     img_data = []
     first = True
+    img_base64 = ""
 
     def add_image(img, rotation, score):
         labels.append(score)
@@ -46,8 +49,12 @@ def train_target_score_model(imagesPath, modelPath):
         print("Loading {} with score {}".format(full_file_name, score))
         img = load_img(full_file_name, color_mode="grayscale", target_size=(IMAGE_SIZE,IMAGE_SIZE), interpolation='bilinear')
         if first:
-            img.show()
+            #img.show()
+            buffered = BytesIO()
+            img.save(buffered, format="PNG")
+            img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8") 
             first = False
+
         add_image(img, 0, score)
         add_image(img, 45, score)
         add_image(img, 90, score)
@@ -78,7 +85,7 @@ def train_target_score_model(imagesPath, modelPath):
 
     # Define Tensorboard as a Keras callback
     tensorboard = TensorBoard(
-        log_dir='.\logs',
+        log_dir='/logs',
         histogram_freq=1,
         write_images=True
     )
@@ -127,19 +134,19 @@ def train_target_score_model(imagesPath, modelPath):
     with open('/mlpipeline-metrics.json', 'w') as f:
         json.dump(metrics, f)
 
+    img_html = '<img src="data:image/png;base64, {}" alt="Target Example">'.format(img_base64)
+
     metadata = {
         'outputs' : [
-            # Markdown that is hardcoded inline
-            {
-                'storage': 'inline',
-                'source': '# Inline Markdown\n[A link](https://www.kubeflow.org/)',
-                'type': 'markdown',
-            },
-            # Markdown that is read from a file
             {
                 'storage':'inline',
                 'source': 'Markdown text',
                 'type': 'markdown',
+            },
+             {
+                'type': 'web-app',
+                'storage': 'inline',
+                'source': img_html,
             }]
         }
     
