@@ -10,6 +10,7 @@ import os
 import json
 import base64
 from io import BytesIO
+from datetime import datetime
 
 from keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
@@ -18,7 +19,7 @@ import numpy as np
 import locale
 
 
-def train_target_score_model(imagesPath, modelPath):
+def train_target_score_model(imagesPath, modelPath, tensorboard_gcs_logs, epochs_count, batch_size):
     train_images_dir = imagesPath
     scores_file = os.path.join(imagesPath, "scores.json")
     
@@ -29,8 +30,9 @@ def train_target_score_model(imagesPath, modelPath):
 
     labels = []
     img_data = []
-    first = True
-    img_base64 = ""
+    img_index = 0
+    #tensorboard_gcs_logs = 'gs://dpa23/tarsanlogs'
+    img_to_show = []
 
     def add_image(img, rotation, score):
         labels.append(score)
@@ -48,17 +50,18 @@ def train_target_score_model(imagesPath, modelPath):
         full_file_name = os.path.join(train_images_dir, file_name)
         print("Loading {} with score {}".format(full_file_name, score))
         img = load_img(full_file_name, color_mode="grayscale", target_size=(IMAGE_SIZE,IMAGE_SIZE), interpolation='bilinear')
-        if first:
-            #img.show()
+        if img_index < 10:
             buffered = BytesIO()
             img.save(buffered, format="PNG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8") 
-            first = False
+            img_to_show.append((img_base64, score, 0.0))
 
         add_image(img, 0, score)
         add_image(img, 45, score)
         add_image(img, 90, score)
         add_image(img, 135, score)
+
+        img_index = img_index + 1
 
     np_labels = np.asfarray(labels)
     np_image_data = np.asfarray(img_data)
@@ -85,19 +88,22 @@ def train_target_score_model(imagesPath, modelPath):
 
     # Define Tensorboard as a Keras callback
     tensorboard = TensorBoard(
-        log_dir='/logs',
-        histogram_freq=1,
-        write_images=True
+        log_dir=tensorboard_gcs_logs +'/' + datetime.now().strftime("%Y%m%d-%H%M%S"),
+        histogram_freq=5,
+        write_images=True,
+        update_freq='epoch'
     )
 
-    keras_callbacks = [
-        tensorboard
-    ]
+    keras_callbacks = []
+    if len(tensorboard_gcs_logs) > 2:
+        keras_callbacks = [
+            tensorboard
+        ]
 
     # train the model
     print("[INFO] training model...")
     model.fit(trainImagesX, trainY, validation_data=(testImagesX, testY), 
-        epochs=100, batch_size=50, callbacks=keras_callbacks)
+        epochs=epochs_count, batch_size=batch_size, callbacks=keras_callbacks)
 
     print("[INFO] saving model to {} ...".format(modelPath))
     model.save(modelPath)
@@ -134,7 +140,13 @@ def train_target_score_model(imagesPath, modelPath):
     with open('/mlpipeline-metrics.json', 'w') as f:
         json.dump(metrics, f)
 
-    img_html = '<img src="data:image/png;base64, {}" alt="Target Example">'.format(img_base64)
+    img_html = '<table><tr><th>Target</th><th>Actual Score</th><th>Predicted Score</th></tr>'
+
+    for (img_b64, s1, s2) in img_to_show:
+        html_line = '<tr><td><img src="data:image/png;base64, {}" alt="Target Example"></td><td>{}</td><td>{}</td></tr>'.format(img_b64, s1, s2)
+        img_html = img_html + html_line
+    
+    img_html = img_html + '</table>'
 
     metadata = {
         'outputs' : [
@@ -147,21 +159,14 @@ def train_target_score_model(imagesPath, modelPath):
                 'type': 'web-app',
                 'storage': 'inline',
                 'source': img_html,
+            },
+            {
+                'type': 'tensorboard',
+                'source': tensorboard_gcs_logs,
             }]
         }
     
     with open('/mlpipeline-ui-metadata.json', 'w') as f:
         json.dump(metadata, f)
-
-    #metadata = {
-    #    'outputs' : [{
-    #    'type': 'tensorboard',
-    #    'source': args.job_dir,
-    #    }]
-    #}
-
-    #with open('/mlpipeline-ui-metadata.json', 'w') as f:
-    #    json.dump(metadata, f)
-
 
     print("[INFO] mean: {:.2f}%, std: {:.2f}%".format(mean, std))

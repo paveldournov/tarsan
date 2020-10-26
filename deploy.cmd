@@ -1,2 +1,3 @@
-CALL env_local.cmd
+python deploy.py
+
 

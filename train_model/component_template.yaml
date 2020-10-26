@@ -3,6 +3,9 @@ description: Train and evaluate the scoring model
 
 inputs:
     - {name: Input images, type: ImageList, description: 'Images to train the model'}
+    - {name: TB Logs, type: GCSPath, description: 'GCS Path to write tensorboard logs'}
+    - {name: Epochs, type: Integer, description: 'Number of epochs to train'}
+    - {name: Batch Size, type: Integer, description: 'Batch size'}
 
 outputs:
     - {name: Model, type: KerasModel, description: "Trained model"}
@@ -15,6 +18,9 @@ implementation:
         command: ["python","/component/entry_point.py"]
         args: [
             --imagesPath, {inputPath: Input images},
+            --tblogs, {inputValue: TB Logs},
+            --epochs, {inputValue: Epochs},            
+            --batchsize, {inputValue: Batch Size},
             --modelPath, {outputPath: Model}
         ]
         fileOutputs:
