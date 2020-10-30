@@ -2,78 +2,141 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: train-target-image-reco-pipeline-
-  annotations: {pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"default": "100",
-      "name": "train_count", "optional": true, "type": "Integer"}, {"default": "10",
-      "name": "test_count", "optional": true, "type": "Integer"}], "name": "Train
-      target image reco pipeline"}'}
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.0.4, pipelines.kubeflow.org/pipeline_compilation_time: '2020-10-25T23:18:19.107045',
+    pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"default": "100", "name":
+      "train_count", "optional": true, "type": "Integer"}, {"default": "10", "name":
+      "test_count", "optional": true, "type": "Integer"}, {"default": "30", "name":
+      "epochs", "optional": true, "type": "Integer"}, {"default": "30", "name": "batch_size",
+      "optional": true, "type": "Integer"}, {"default": "dpa23", "name": "dest_gcs_bucket",
+      "optional": true, "type": "GCSBucket"}, {"default": "gs://dpa23/tarsantblogs",
+      "name": "tb_logs", "optional": true, "type": "GCSPath"}], "name": "Train target
+      image reco pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.0.4}
 spec:
   entrypoint: train-target-image-reco-pipeline
   templates:
   - name: deploy-the-model
     container:
-      args: [--modelPath, /tmp/inputs/Model/data, --endpointOutFile, /tmp/outputs/Endpoint/data]
-      command: [python, /component/entry_point.py]
-      image: gcr.io/test-vms/tarsan/deploymodel:0.12-test36
+      args: [--modelPath, /tmp/inputs/Model/data, --DestGCSBucket, '{{inputs.parameters.dest_gcs_bucket}}',
+        --endpointOutFile, /tmp/outputs/Endpoint/data, --DestGCSPath, /tmp/outputs/DestGCSPath/data]
+      command: [python3, /component/entry_point.py]
+      env:
+      - {name: GOOGLE_APPLICATION_CREDENTIALS, value: /secret/gcp-credentials/user-gcp-sa.json}
+      - {name: CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE, value: /secret/gcp-credentials/user-gcp-sa.json}
+      image: gcr.io/test-vms/tarsan/deploymodel:25-10-2020-23-17-31.930988
+      volumeMounts:
+      - {mountPath: /secret/gcp-credentials, name: gcp-credentials-user-gcp-sa}
     inputs:
+      parameters:
+      - {name: dest_gcs_bucket}
       artifacts:
-      - {name: train-scoring-model-model, path: /tmp/inputs/Model/data}
+      - {name: train-scoring-model-Model, path: /tmp/inputs/Model/data}
     outputs:
       artifacts:
       - {name: mlpipeline-ui-metadata, path: /mlpipeline-ui-metadata.json}
-      - {name: deploy-the-model-endpoint, path: /tmp/outputs/Endpoint/data}
+      - {name: deploy-the-model-DestGCSPath, path: /tmp/outputs/DestGCSPath/data}
+      - {name: deploy-the-model-Endpoint, path: /tmp/outputs/Endpoint/data}
+    volumes:
+    - name: gcp-credentials-user-gcp-sa
+      secret: {secretName: user-gcp-sa}
     metadata:
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Deploy
-          model as an endpoint", "inputs": [{"description": "Trained model", "name":
-          "Model", "type": "KerasModel"}], "name": "Deploy the model", "outputs":
-          [{"description": "Model endpoint URL", "name": "Endpoint", "type": "String"},
-          {"name": "MLPipeline UI metadata", "type": "UI metadata"}]}'}
+          model as an endpoint", "implementation": {"container": {"args": ["--modelPath",
+          {"inputPath": "Model"}, "--DestGCSBucket", {"inputValue": "DestGCSBucket"},
+          "--endpointOutFile", {"outputPath": "Endpoint"}, "--DestGCSPath", {"outputPath":
+          "DestGCSPath"}], "command": ["python3", "/component/entry_point.py"], "fileOutputs":
+          {"MLPipeline UI metadata": "/mlpipeline-ui-metadata.json"}, "image": "gcr.io/test-vms/tarsan/deploymodel:25-10-2020-23-17-31.930988"}},
+          "inputs": [{"description": "Trained model", "name": "Model", "type": "KerasModel"},
+          {"description": "GCS Destination bucket", "name": "DestGCSBucket", "type":
+          "GCSBucket"}], "name": "Deploy the model", "outputs": [{"description": "Model
+          endpoint URL", "name": "Endpoint", "type": "String"}, {"description": "Model
+          GCS destination path", "name": "DestGCSPath", "type": "String"}, {"name":
+          "MLPipeline UI metadata", "type": "UI metadata"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "9d4992bfb4ca39e603abce9382eabd19f29b0f67a356dc37731d0763a503cc64", "url":
+          "deploy_model\\component.yaml"}'}
   - name: generate-target-images
     container:
       args: [--train_samples, '{{inputs.parameters.train_count}}', --test_samples,
         '{{inputs.parameters.test_count}}', --train_path, /tmp/outputs/TrainingDataLocation/data,
         --test_path, /tmp/outputs/TestDataLocation/data]
       command: [python, /component/entry_point.py]
-      image: gcr.io/test-vms/tarsan/genimages:0.12-test36
+      image: gcr.io/test-vms/tarsan/genimages:25-10-2020-23-17-31.930988
     inputs:
       parameters:
       - {name: test_count}
       - {name: train_count}
     outputs:
       artifacts:
-      - {name: generate-target-images-testdatalocation, path: /tmp/outputs/TestDataLocation/data}
-      - {name: generate-target-images-trainingdatalocation, path: /tmp/outputs/TrainingDataLocation/data}
+      - {name: generate-target-images-TestDataLocation, path: /tmp/outputs/TestDataLocation/data}
+      - {name: generate-target-images-TrainingDataLocation, path: /tmp/outputs/TrainingDataLocation/data}
     metadata:
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
-          images of bulls-eye target with random holes", "inputs": [{"description":
-          "Number of images to generate for training", "name": "TrainingImageCount",
-          "type": "Integer"}, {"description": "Number of images to generate for testing",
-          "name": "TestImageCount", "type": "Integer"}], "name": "Generate target
-          images", "outputs": [{"description": "Path for the training images location",
-          "name": "TrainingDataLocation", "type": "ImageList"}, {"description": "Path
-          for the testing images location", "name": "TestDataLocation", "type": "ImageList"}]}'}
+          images of bulls-eye target with random holes", "implementation": {"container":
+          {"args": ["--train_samples", {"inputValue": "TrainingImageCount"}, "--test_samples",
+          {"inputValue": "TestImageCount"}, "--train_path", {"outputPath": "TrainingDataLocation"},
+          "--test_path", {"outputPath": "TestDataLocation"}], "command": ["python",
+          "/component/entry_point.py"], "image": "gcr.io/test-vms/tarsan/genimages:25-10-2020-23-17-31.930988"}},
+          "inputs": [{"description": "Number of images to generate for training",
+          "name": "TrainingImageCount", "type": "Integer"}, {"description": "Number
+          of images to generate for testing", "name": "TestImageCount", "type": "Integer"}],
+          "name": "Generate target images", "outputs": [{"description": "Path for
+          the training images location", "name": "TrainingDataLocation", "type": "ImageList"},
+          {"description": "Path for the testing images location", "name": "TestDataLocation",
+          "type": "ImageList"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "4969be9201852ec77457a2b247ff62b09d6b00acb41e53365581bd1122601eba", "url":
+          "generate_data\\component.yaml"}'}
   - name: train-scoring-model
     container:
-      args: [--imagesPath, /tmp/inputs/Input_images/data, --modelPath, /tmp/outputs/Model/data]
+      args: [--imagesPath, /tmp/inputs/Input_images/data, --tblogs, '{{inputs.parameters.tb_logs}}',
+        --epochs, '{{inputs.parameters.epochs}}', --batchsize, '{{inputs.parameters.batch_size}}',
+        --modelPath, /tmp/outputs/Model/data]
       command: [python, /component/entry_point.py]
-      image: gcr.io/test-vms/tarsan/trainmodel:0.12-test36
+      env:
+      - {name: GOOGLE_APPLICATION_CREDENTIALS, value: /secret/gcp-credentials/user-gcp-sa.json}
+      - {name: CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE, value: /secret/gcp-credentials/user-gcp-sa.json}
+      image: gcr.io/test-vms/tarsan/trainmodel:25-10-2020-23-17-31.930988
+      volumeMounts:
+      - {mountPath: /secret/gcp-credentials, name: gcp-credentials-user-gcp-sa}
     inputs:
+      parameters:
+      - {name: batch_size}
+      - {name: epochs}
+      - {name: tb_logs}
       artifacts:
-      - {name: generate-target-images-trainingdatalocation, path: /tmp/inputs/Input_images/data}
+      - {name: generate-target-images-TrainingDataLocation, path: /tmp/inputs/Input_images/data}
     outputs:
       artifacts:
       - {name: mlpipeline-ui-metadata, path: /mlpipeline-ui-metadata.json}
       - {name: mlpipeline-metrics, path: /mlpipeline-metrics.json}
-      - {name: train-scoring-model-model, path: /tmp/outputs/Model/data}
+      - {name: train-scoring-model-Model, path: /tmp/outputs/Model/data}
+    volumes:
+    - name: gcp-credentials-user-gcp-sa
+      secret: {secretName: user-gcp-sa}
     metadata:
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Train
-          and evaluate the scoring model", "inputs": [{"description": "Images to train
-          the model", "name": "Input images", "type": "ImageList"}], "name": "Train
-          scoring model", "outputs": [{"description": "Trained model", "name": "Model",
-          "type": "KerasModel"}, {"name": "MLPipeline UI metadata", "type": "UI metadata"},
-          {"name": "MLPipeline Metrics", "type": "Metrics"}]}'}
+          and evaluate the scoring model", "implementation": {"container": {"args":
+          ["--imagesPath", {"inputPath": "Input images"}, "--tblogs", {"inputValue":
+          "TB Logs"}, "--epochs", {"inputValue": "Epochs"}, "--batchsize", {"inputValue":
+          "Batch Size"}, "--modelPath", {"outputPath": "Model"}], "command": ["python",
+          "/component/entry_point.py"], "fileOutputs": {"MLPipeline Metrics": "/mlpipeline-metrics.json",
+          "MLPipeline UI metadata": "/mlpipeline-ui-metadata.json"}, "image": "gcr.io/test-vms/tarsan/trainmodel:25-10-2020-23-17-31.930988"}},
+          "inputs": [{"description": "Images to train the model", "name": "Input images",
+          "type": "ImageList"}, {"description": "GCS Path to write tensorboard logs",
+          "name": "TB Logs", "type": "GCSPath"}, {"description": "Number of epochs
+          to train", "name": "Epochs", "type": "Integer"}, {"description": "Batch
+          size", "name": "Batch Size", "type": "Integer"}], "name": "Train scoring
+          model", "outputs": [{"description": "Trained model", "name": "Model", "type":
+          "KerasModel"}, {"name": "MLPipeline UI metadata", "type": "UI metadata"},
+          {"name": "MLPipeline Metrics", "type": "Metrics"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "1a7e5c7150aa83a16829ea7a68746d5485da59bf73780bed083bdb64b8b55003", "url":
+          "train_model\\component.yaml"}'}
   - name: train-target-image-reco-pipeline
     inputs:
       parameters:
+      - {name: batch_size}
+      - {name: dest_gcs_bucket}
+      - {name: epochs}
+      - {name: tb_logs}
       - {name: test_count}
       - {name: train_count}
     dag:
@@ -82,8 +145,10 @@ spec:
         template: deploy-the-model
         dependencies: [train-scoring-model]
         arguments:
+          parameters:
+          - {name: dest_gcs_bucket, value: '{{inputs.parameters.dest_gcs_bucket}}'}
           artifacts:
-          - {name: train-scoring-model-model, from: '{{tasks.train-scoring-model.outputs.artifacts.train-scoring-model-model}}'}
+          - {name: train-scoring-model-Model, from: '{{tasks.train-scoring-model.outputs.artifacts.train-scoring-model-Model}}'}
       - name: generate-target-images
         template: generate-target-images
         arguments:
@@ -94,10 +159,18 @@ spec:
         template: train-scoring-model
         dependencies: [generate-target-images]
         arguments:
+          parameters:
+          - {name: batch_size, value: '{{inputs.parameters.batch_size}}'}
+          - {name: epochs, value: '{{inputs.parameters.epochs}}'}
+          - {name: tb_logs, value: '{{inputs.parameters.tb_logs}}'}
           artifacts:
-          - {name: generate-target-images-trainingdatalocation, from: '{{tasks.generate-target-images.outputs.artifacts.generate-target-images-trainingdatalocation}}'}
+          - {name: generate-target-images-TrainingDataLocation, from: '{{tasks.generate-target-images.outputs.artifacts.generate-target-images-TrainingDataLocation}}'}
   arguments:
     parameters:
     - {name: train_count, value: '100'}
     - {name: test_count, value: '10'}
+    - {name: epochs, value: '30'}
+    - {name: batch_size, value: '30'}
+    - {name: dest_gcs_bucket, value: dpa23}
+    - {name: tb_logs, value: 'gs://dpa23/tarsantblogs'}
   serviceAccountName: pipeline-runner

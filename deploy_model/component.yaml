@@ -3,18 +3,22 @@ description: Deploy model as an endpoint
 
 inputs:
     - {name: Model, type: KerasModel, description: "Trained model"}
+    - {name: DestGCSBucket, type: GCSBucket, description: "GCS Destination bucket"}
 
 outputs:
     - {name: Endpoint, type: String, description: "Model endpoint URL"}
+    - {name: DestGCSPath, type: String, description: "Model GCS destination path"}
     - {name: MLPipeline UI metadata, type: UI metadata}
 
 implementation:
     container:
-        image: gcr.io/test-vms/tarsan/deploymodel:0.12-test36
-        command: ["python","/component/entry_point.py"]
+        image: gcr.io/test-vms/tarsan/deploymodel:25-10-2020-23-17-31.930988
+        command: ["python3","/component/entry_point.py"]
         args: [
             --modelPath, {inputPath: Model},
-            --endpointOutFile, {outputPath: Endpoint}
+            --DestGCSBucket, {inputValue: DestGCSBucket},
+            --endpointOutFile, {outputPath: Endpoint},
+            --DestGCSPath, {outputPath: DestGCSPath}
         ]
         fileOutputs:
             MLPipeline UI metadata: /mlpipeline-ui-metadata.json
